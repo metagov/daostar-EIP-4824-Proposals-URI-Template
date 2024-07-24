@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template,  redirect, url_for
 import requests
 import time
 import random
@@ -133,6 +133,11 @@ def get_proposals(space):
     }
 
     return jsonify(formatted_proposals)
+
+@app.errorhandler(404)
+def page_not_found(e):
+    """Redirect to root if an incorrect endpoint is accessed."""
+    return redirect(url_for('docs'))
 
 
 if __name__ == '__main__':
