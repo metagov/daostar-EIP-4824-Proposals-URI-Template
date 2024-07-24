@@ -1,0 +1,5 @@
+Flask==3.0.1
+requests==2.27.1
+pyperclip==1.8.2
+redis==5.0.4
+flask_cors
