@@ -47,7 +47,7 @@ def safe_request(url, json_payload, retries=5, initial_delay=3):
 
 def fetch_proposals_paginated(space, order_direction='asc', initial_created_gt=None, force_refresh=False):
     """Fetch paginated proposals from Snapshot Hub GraphQL API, handling pagination only if a cursor is provided."""
-    cache_key = f"{space}-{order_direction}-{initial_created_gt}"
+    cache_key = f"proposals-{space}-{order_direction}-{initial_created_gt}"
     if not force_refresh:
         cached_data = r.get(cache_key)
         if cached_data:
