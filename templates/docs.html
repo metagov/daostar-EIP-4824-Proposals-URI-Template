@@ -17,130 +17,21 @@
                 <li><code>space</code>: String - The DAO space identifier (e.g., "ens.eth") as part of the URL path.</li>
                 <li><code>cursor</code>: Integer (optional) - Used to paginate results based on this cursor. If provided, the API fetches results created after the timestamp denoted by this cursor.</li>
                 <li><code>refresh</code>: Boolean (optional) - If true, forces the endpoint to bypass the cache and refresh the data from the source.</li>
+                <li><code>onchain</code>: String (optional) - If provided, fetches on-chain proposals using the provided organization slug.</li>
             </ul>
             <p>Description:</p>
-            <p>This endpoint retrieves a list of proposals from the specified DAO space, allowing for pagination if a cursor is provided. It is effective for accessing data in manageable segments when dealing with large datasets. Use the <code>refresh</code> parameter to force a refresh of the data and update the cache.</p>
+            <p>This endpoint retrieves a list of proposals from the specified DAO space, allowing for pagination if a cursor is provided. It is effective for accessing data in manageable segments when dealing with large datasets. Use the <code>refresh</code> parameter to force a refresh of the data and update the cache. The <code>onchain</code> parameter fetches on-chain proposals from Tally API if the organization slug is provided.</p>
             <h3>Example Usage</h3>
             <p><b>Request without cursor:</b></p>
             <pre>GET /proposals/ens.eth</pre>
-            <p><b>Response:</b></p>
-            <pre>{
-  "proposals": [
-    {
-      "id": "Qm...",
-      "ipfs": "Qm...",
-      "author": "0x123...",
-      "created": 1609459200,
-      "updated": 1609459200,
-      "network": "mainnet",
-      "symbol": "ENS",
-      "type": "single-choice",
-      "plugins": {},
-      "title": "Example Proposal",
-      "body": "This is an example proposal.",
-      "discussion": "https://forum.example.com",
-      "choices": ["Yes", "No"],
-      "start": 1609459200,
-      "end": 1609545600,
-      "quorum": 100,
-      "quorumType": "tokens",
-      "privacy": "public",
-      "snapshot": "1234567",
-      "state": "active",
-      "link": "https://example.com",
-      "scores": [100, 50],
-      "scores_by_strategy": [100, 50],
-      "scores_state": "final",
-      "scores_total": 150,
-      "scores_updated": 1609545600,
-      "votes": 10,
-      "flagged": false
-    }
-  ],
-  "next_cursor": 1609462800,
-  "@context": "http://daostar.org/schemas",
-  "name": "ens.eth"
-}</pre>
             <p><b>Request with cursor:</b></p>
             <pre>GET /proposals/ens.eth?cursor=1609459200</pre>
-            <p><b>Response:</b></p>
-            <pre>{
-  "proposals": [
-    {
-      "id": "Qm...",
-      "ipfs": "Qm...",
-      "author": "0x456...",
-      "created": 1609462800,
-      "updated": 1609462800,
-      "network": "mainnet",
-      "symbol": "ENS",
-      "type": "single-choice",
-      "plugins": {},
-      "title": "Second Example Proposal",
-      "body": "This is another example proposal.",
-      "discussion": "https://forum.example.com",
-      "choices": ["Yes", "No"],
-      "start": 1609462800,
-      "end": 1609549200,
-      "quorum": 200,
-      "quorumType": "tokens",
-      "privacy": "public",
-      "snapshot": "1234568",
-      "state": "active",
-      "link": "https://example.com",
-      "scores": [200, 100],
-      "scores_by_strategy": [200, 100],
-      "scores_state": "final",
-      "scores_total": 300,
-      "scores_updated": 1609549200,
-      "votes": 20,
-      "flagged": false
-    }
-  ],
-  "next_cursor": 1609466400,
-  "@context": "http://daostar.org/schemas",
-  "name": "ens.eth"
-}</pre>
             <p><b>Request with refresh:</b></p>
             <pre>GET /proposals/ens.eth?refresh=true</pre>
-            <p><b>Response:</b></p>
-            <pre>{
-  "proposals": [
-    {
-      "id": "Qm...",
-      "ipfs": "Qm...",
-      "author": "0x123...",
-      "created": 1609459200,
-      "updated": 1609459200,
-      "network": "mainnet",
-      "symbol": "ENS",
-      "type": "single-choice",
-      "plugins": {},
-      "title": "Example Proposal",
-      "body": "This is an example proposal.",
-      "discussion": "https://forum.example.com",
-      "choices": ["Yes", "No"],
-      "start": 1609459200,
-      "end": 1609545600,
-      "quorum": 100,
-      "quorumType": "tokens",
-      "privacy": "public",
-      "snapshot": "1234567",
-      "state": "active",
-      "link": "https://example.com",
-      "scores": [100, 50],
-      "scores_by_strategy": [100, 50],
-      "scores_state": "final",
-      "scores_total": 150,
-      "scores_updated": 1609545600,
-      "votes": 10,
-      "flagged": false
-    }
-  ],
-  "next_cursor": 1609462800,
-  "@context": "http://daostar.org/schemas",
-  "name": "ens.eth"
-}</pre>
+            <p><b>Request with onchain:</b></p>
+            <pre>GET /proposals/ens.eth?onchain=your_slug_here</pre>
+            <p><b>Request with refresh and onchain:</b></p>
+            <pre>GET /proposals/ens.eth?refresh=true&onchain=your_slug_here</pre>
         </li>
     </ul>
 </body>

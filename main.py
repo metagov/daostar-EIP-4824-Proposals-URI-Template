@@ -144,6 +144,36 @@ def fetch_onchain_proposals(onchain_slug):
               discourseURL
               snapshotURL
             }
+            quorum
+        start {
+          ... on Block {
+            timestamp
+          }
+        }
+        end {
+          ... on Block {
+            timestamp
+          }
+        }
+        createdAt
+        creator {
+          address
+        }
+        status
+        voteStats {
+          type
+          votesCount
+          votersCount
+          percent
+        }
+        proposer {
+          address
+        }
+        l1ChainId
+        onchainId
+        originalId
+        chainId
+        votableChains
           }
         }
       }
