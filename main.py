@@ -8,7 +8,7 @@ import json
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Consider restricting this to specific domains
 
 # Initialize Redis client
 redis_url = os.getenv('REDIS_URL', 'localhost')
@@ -28,22 +28,28 @@ def safe_request(url, json_payload, retries=5, initial_delay=3, headers=None):
     """Make API requests with handling for rate limits using exponential backoff."""
     delay = initial_delay
     for attempt in range(retries):
-        response = requests.post(url, json=json_payload, headers=headers)
-        if response.status_code == 200:
-            return response.json()
-        elif response.status_code == 429 or response.status_code == 503:
-            sleep_time = delay + random.uniform(0, delay / 2)
-            print(f"Rate limited or service unavailable. Retrying in {sleep_time} seconds...")
-            time.sleep(sleep_time)
-            delay *= 2
-        else:
-            print(f"Request failed with status code {response.status_code}: {response.text}")
+        try:
+            response = requests.post(url, json=json_payload, headers=headers)
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code in [429, 503]:
+                sleep_time = delay + random.uniform(0, delay / 2)
+                print(f"Rate limited or service unavailable. Retrying in {sleep_time} seconds...")
+                time.sleep(sleep_time)
+                delay *= 2
+            else:
+                print(f"Request failed with status code {response.status_code}: {response.text}")
+                return None
+        except requests.RequestException as e:
+            print(f"Request exception: {str(e)}")
             return None
     raise Exception("Maximum retries exceeded with status code 429 or 503. Consider increasing retry count or delay.")
 
 def fetch_proposals_paginated(space, order_direction='asc', initial_created_gt=None, force_refresh=False):
     """Fetch paginated proposals from Snapshot Hub GraphQL API, handling pagination only if a cursor is provided."""
     cache_key = f"proposals-{space}-{order_direction}-{initial_created_gt}"
+    last_cursor = None
+
     if not force_refresh:
         cached_data = r.get(cache_key)
         if cached_data:
@@ -90,9 +96,6 @@ def fetch_proposals_paginated(space, order_direction='asc', initial_created_gt=N
         "orderDirection": order_direction,
     }
 
-    if initial_created_gt:
-        variables['where']['created_gt'] = initial_created_gt  # Pagination based on cursor
-
     data = safe_request(url, {'query': query, 'variables': variables})
     proposals = []
     if data and 'data' in data and 'proposals' in data['data']:
@@ -106,11 +109,18 @@ def fetch_proposals_paginated(space, order_direction='asc', initial_created_gt=N
 
     return proposals, last_cursor
 
-def fetch_onchain_proposals(onchain_slug):
-    """Fetch on-chain proposals from Tally API."""
+def fetch_onchain_proposals(onchain_slug, cursor=None, refresh=False):
+    """Fetch paginated on-chain proposals from Tally API with caching."""
     tally_api_url = "https://api.tally.xyz/query"
     tally_api_key = "ecd51c574c037f0af3e1f2285f4d60c043fbb841589ca5aa6e0a868d9e599b63"
 
+    cache_key = f"onchain-proposals-{onchain_slug}-{cursor}"
+    
+    if not refresh:
+        cached_data = r.get(cache_key)
+        if cached_data:
+            return json.loads(cached_data)
+    
     # Fetch organization ID
     query_org_id = """
     query ($slug: String!) {
@@ -126,7 +136,7 @@ def fetch_onchain_proposals(onchain_slug):
 
     organization_id = data_org_id['data']['organizationSlugToId']
 
-    # Fetch proposals
+    # Fetch proposals with pagination using pageInfo and lastCursor
     query_proposals = """
     query Proposals($input: ProposalsInput!) {
       proposals(input: $input) {
@@ -144,76 +154,104 @@ def fetch_onchain_proposals(onchain_slug):
               discourseURL
               snapshotURL
             }
+            createdAt
+            creator {
+              address
+              ens
+            }
+            end {
+              ... on Block {
+                timestamp
+              }
+            }
+            l1ChainId
+            onchainId
+            originalId
+            proposer {
+              address
+              ens
+            }
             quorum
-        start {
-          ... on Block {
-            timestamp
+            start {
+              ... on Block {
+                timestamp
+              }
+            }
+            status
+            votableChains
+            voteStats {
+              type
+              votesCount
+              votersCount
+              percent
+            }
           }
         }
-        end {
-          ... on Block {
-            timestamp
-          }
-        }
-        createdAt
-        creator {
-          address
-        }
-        status
-        voteStats {
-          type
-          votesCount
-          votersCount
-          percent
-        }
-        proposer {
-          address
-        }
-        l1ChainId
-        onchainId
-        originalId
-        chainId
-        votableChains
-          }
+        pageInfo {
+          lastCursor
         }
       }
     }
     """
-    variables_proposals = {"input": {"filters": {"organizationId": organization_id}}}
+    variables_proposals = {
+        "input": {
+            "filters": {"organizationId": organization_id},
+            "page": {
+                "afterCursor": cursor
+            }
+        }
+    }
     data_proposals = safe_request(tally_api_url, {'query': query_proposals, 'variables': variables_proposals}, headers=headers)
 
     if not data_proposals or 'data' not in data_proposals or 'proposals' not in data_proposals['data']:
         raise Exception("Failed to fetch proposals from Tally API")
 
-    return data_proposals['data']['proposals']['nodes']
+    proposals = data_proposals['data']['proposals']['nodes']
+    onchain_cursor = data_proposals['data']['proposals']['pageInfo']['lastCursor']
+
+    # Cache the result for future requests
+    r.set(cache_key, json.dumps((proposals, onchain_cursor)), ex=36000)  # Cache for 10 hours
+
+    return proposals, onchain_cursor
+
+
+
 
 @app.route('/proposals/<space>', methods=['GET'])
 def get_proposals(space):
     """Endpoint to fetch proposals."""
     print("Fetching Proposals Data...")
-    cursor_str = request.args.get('cursor')
-    refresh_cache = request.args.get('refresh', 'false').lower() == 'true'
+    offchain_cursor_str = request.args.get('offchain_cursor')
+    onchain_cursor_str = request.args.get('onchain_cursor')
     onchain_slug = request.args.get('onchain')
+    refresh = request.args.get('refresh') == 'true'
 
     try:
-        cursor = int(cursor_str) if cursor_str is not None else None
+        offchain_cursor = int(offchain_cursor_str) if offchain_cursor_str is not None else None
     except ValueError:
-        return jsonify({"error": "Invalid cursor format. Cursor must be an integer."}), 400
+        return jsonify({"error": "Invalid offchain cursor format. Cursor must be an integer."}), 400
 
-    proposals_list, last_cursor = fetch_proposals_paginated(space, initial_created_gt=cursor, force_refresh=refresh_cache)
+    try:
+        onchain_cursor = int(onchain_cursor_str) if onchain_cursor_str is not None else None
+    except ValueError:
+        return jsonify({"error": "Invalid onchain cursor format. Cursor must be an integer."}), 400
+
+    proposals_list, last_cursor = fetch_proposals_paginated(space, initial_created_gt=offchain_cursor, force_refresh=refresh)
 
     formatted_proposals = {
         "proposals": {
             "offchain": proposals_list,
         },
-        "next_cursor": last_cursor,
+        "offchain_cursor": last_cursor,
         "@context": "http://daostar.org/schemas",
         "name": space
     }
 
     if onchain_slug:
-        onchain_proposals = fetch_onchain_proposals(onchain_slug)
+        onchain_proposals , onchain_cursor = fetch_onchain_proposals(onchain_slug, cursor=onchain_cursor, refresh=refresh)
         formatted_proposals["proposals"]["onchain"] = onchain_proposals
+        formatted_proposals["onchain_cursor"] = onchain_cursor
+
 
     return jsonify(formatted_proposals)
 
