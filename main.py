@@ -45,7 +45,7 @@ def safe_request(url, json_payload, retries=5, initial_delay=3, headers=None):
             return None
     raise Exception("Maximum retries exceeded with status code 429 or 503. Consider increasing retry count or delay.")
 
-def fetch_proposals_paginated(space, order_direction='asc', initial_created_gt=None, force_refresh=False):
+def fetch_proposals_paginated(space, order_direction='desc', initial_created_gt=None, force_refresh=False):
     """Fetch paginated proposals from Snapshot Hub GraphQL API, handling pagination only if a cursor is provided."""
     cache_key = f"proposals-{space}-{order_direction}-{initial_created_gt}"
     last_cursor = None
