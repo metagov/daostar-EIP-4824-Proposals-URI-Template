@@ -112,7 +112,7 @@ def fetch_proposals_paginated(space, order_direction='asc', initial_created_gt=N
 def fetch_onchain_proposals(onchain_slug, cursor=None, refresh=False):
     """Fetch paginated on-chain proposals from Tally API with caching."""
     tally_api_url = "https://api.tally.xyz/query"
-    tally_api_key = "ecd51c574c037f0af3e1f2285f4d60c043fbb841589ca5aa6e0a868d9e599b63"
+    tally_api_key = ""
 
     cache_key = f"onchain-proposals-{onchain_slug}-{cursor}"
     
