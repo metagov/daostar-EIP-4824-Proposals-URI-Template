@@ -102,10 +102,10 @@ def fetch_proposals_paginated(space, order_direction='desc', initial_created_gt=
         proposals = data['data']['proposals']
         if proposals:
             last_cursor = proposals[-1]['created']
-            print("Cursor set: " + str(last_cursor))
+            print("Offchain Cursor set: " + str(last_cursor))
 
-        print("Setting Cache for 10 Hours")
-        r.set(cache_key, json.dumps((proposals, last_cursor)), ex=36000)  # Cache for 10 hours
+        print("Setting Cache")
+        r.set(cache_key, json.dumps((proposals, last_cursor))) 
 
     return proposals, last_cursor
 
@@ -119,6 +119,7 @@ def fetch_onchain_proposals(onchain_slug, cursor=None, refresh=False):
     if not refresh:
         cached_data = r.get(cache_key)
         if cached_data:
+            print("Using cache for onchain proposals")
             return json.loads(cached_data)
     
     # Fetch organization ID
@@ -208,9 +209,11 @@ def fetch_onchain_proposals(onchain_slug, cursor=None, refresh=False):
 
     proposals = data_proposals['data']['proposals']['nodes']
     onchain_cursor = data_proposals['data']['proposals']['pageInfo']['lastCursor']
+    print(data_proposals['data']['proposals'])
 
-    # Cache the result for future requests
-    r.set(cache_key, json.dumps((proposals, onchain_cursor)), ex=36000)  # Cache for 10 hours
+    
+    print("Setting cache for onchain")
+    r.set(cache_key, json.dumps((proposals, onchain_cursor))) 
 
     return proposals, onchain_cursor
 
@@ -232,9 +235,9 @@ def get_proposals(space):
         return jsonify({"error": "Invalid offchain cursor format. Cursor must be an integer."}), 400
 
     try:
-        onchain_cursor = int(onchain_cursor_str) if onchain_cursor_str is not None else None
+        onchain_cursor = onchain_cursor_str if onchain_cursor_str is not None else None
     except ValueError:
-        return jsonify({"error": "Invalid onchain cursor format. Cursor must be an integer."}), 400
+        return jsonify({"error": "Invalid onchain cursor format."}), 400
 
     proposals_list, last_cursor = fetch_proposals_paginated(space, initial_created_gt=offchain_cursor, force_refresh=refresh)
 
@@ -247,10 +250,10 @@ def get_proposals(space):
         "name": space
     }
 
-    if onchain_slug:
-        onchain_proposals , onchain_cursor = fetch_onchain_proposals(onchain_slug, cursor=onchain_cursor, refresh=refresh)
+    if onchain_slug or onchain_cursor:
+        onchain_proposals, onchain_cursor_res = fetch_onchain_proposals(onchain_slug, cursor=onchain_cursor, refresh=refresh)
         formatted_proposals["proposals"]["onchain"] = onchain_proposals
-        formatted_proposals["onchain_cursor"] = onchain_cursor
+        formatted_proposals["onchain_cursor"] = onchain_cursor_res
 
 
     return jsonify(formatted_proposals)
