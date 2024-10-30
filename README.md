@@ -2,6 +2,13 @@
 
 This page provides detailed documentation for the API endpoints available in the application, focusing on retrieving proposals for a specific DAO space.
 
+## Build Instructions
+
+`pip install -r requirements.txt`
+
+`python3 main.py` 
+
+
 ## Endpoints
 
 - **GET /proposals/<space>** - Fetches proposals for a specified DAO space.
